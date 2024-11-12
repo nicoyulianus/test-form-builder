@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import TextField from './components/TextField.vue'
+import TextArea from './components/TextArea.vue'
+import RadioButton from './components/RadioButton.vue'
+import Autocomplete from './components/Autocomplete.vue'
 import MainContainer from './components/MainContainer.vue'
+import SubmitButton from './components/SubmitButton.vue'
 
 type Personal = { label: string; value: string }
 
@@ -9,7 +14,7 @@ interface Fields {
   label: string
   placeholder?: string
   required: boolean
-  options?: Personal[]
+  options?: Personal[] | string[]
 }
 
 interface Data {
@@ -22,14 +27,14 @@ interface Data {
 const data = ref<Data[]>([])
 const formData = reactive<Record<string, string>>({})
 const errors = reactive<Record<string, string>>({})
+const isValid = ref(true) // State to track form validity
 
-// Fungsi untuk mengambil data dari response.json
+// Function to fetch data from response.json
 async function fetchData() {
   const response = await fetch('/response.json')
   const result = await response.json()
   data.value = result
 
-  // Inisialisasi formData dan errors
   result.forEach((step: Data) => {
     step.fields.forEach((field) => {
       formData[field.label] = ''
@@ -42,29 +47,29 @@ onMounted(() => {
   fetchData()
 })
 
-// Fungsi untuk validasi input
+// Function to validate form input
 function validateForm() {
-  let isValid = true
+  let valid = true
   data.value.forEach((step) => {
     step.fields.forEach((field) => {
       if (field.required && !formData[field.label]) {
         errors[field.label] = `${field.label} is required`
-        isValid = false
+        valid = false
       } else {
         errors[field.label] = ''
       }
     })
   })
-  return isValid
+  isValid.value = valid // Update isValid state
+  return valid
 }
 
-// Fungsi untuk menangani submit form
+// Function to handle form submission
 function handleSubmit() {
   if (validateForm()) {
     console.log('Data yang diisi oleh user:', formData)
     alert(`Data yang diisi oleh user: ${JSON.stringify(formData)}`)
-
-    // Reset formData setelah submit berhasil
+    // Reset form data after submission
     Object.keys(formData).forEach((key) => {
       formData[key] = ''
     })
@@ -72,8 +77,6 @@ function handleSubmit() {
     alert('Please fill out all required fields')
   }
 }
-
-console.log(data.value)
 </script>
 
 <template>
@@ -84,81 +87,51 @@ console.log(data.value)
         <p>{{ step.description }}</p>
 
         <div v-for="field in step.fields" :key="field.label">
-          <label :for="field.label" class="block mt-2">{{ field.label }}</label>
-
           <!-- Input Textfield -->
-          <div v-if="field.type === 'textfield'">
-            <input
-              v-model="formData[field.label]"
-              type="text"
-              :placeholder="field.placeholder"
-              :required="field.required"
-              class="w-full p-2 mt-1 border"
-            />
-            <span v-if="errors[field.label]" class="text-red-500">{{ errors[field.label] }}</span>
-          </div>
+          <TextField
+            v-if="field.type === 'textfield'"
+            v-model="formData[field.label]"
+            :label="field.label"
+            :placeholder="field.placeholder || ''"
+            :required="field.required"
+            :error="errors[field.label]"
+          />
 
-          <!-- Radio Buttons -->
-          <div v-if="field.type === 'radio'">
-            <div v-for="option in field.options" :key="option.value">
-              <input
-                v-model="formData[field.label]"
-                type="radio"
-                :id="option.value"
-                :name="field.label"
-                :value="option.value"
-                :required="field.required"
-              />
-              <label :for="option.value" class="ml-2">{{ option.label }}</label>
-            </div>
-            <span v-if="errors[field.label]" class="text-red-500">{{ errors[field.label] }}</span>
-          </div>
+          <!-- Radio Button -->
+          <RadioButton
+            v-if="field.type === 'radio'"
+            v-model="formData[field.label]"
+            :label="field.label"
+            :options="field.options as Personal[]"
+            :required="field.required"
+            :error="errors[field.label]"
+          />
 
           <!-- Textarea -->
-          <div v-if="field.type === 'textarea'">
-            <textarea
-              v-model="formData[field.label]"
-              :placeholder="field.placeholder"
-              :required="field.required"
-              class="w-full p-2 mt-1 border"
-            ></textarea>
-            <span v-if="errors[field.label]" class="text-red-500">{{ errors[field.label] }}</span>
-          </div>
+          <TextArea
+            v-if="field.type === 'textarea'"
+            v-model="formData[field.label]"
+            :label="field.label"
+            :placeholder="field.placeholder || ''"
+            :required="field.required"
+            :error="errors[field.label]"
+          />
 
-          <!-- Autocomplete (Select) -->
-          <div v-if="field.type === 'autocomplete'">
-            <select
-              v-model="formData[field.label]"
-              :required="field.required"
-              class="w-full p-2 mt-1 border"
-              placeholder="aa"
-            >
-              <option value="" disabled>{{ field.placeholder }}</option>
-              <option
-                v-for="option in field.options"
-                :key="option"
-                :value="option"
-                placeholder="aa"
-              >
-                {{ option }}
-              </option>
-            </select>
-            <span v-if="errors[field.label]" class="text-red-500">{{ errors[field.label] }}</span>
-          </div>
+          <!-- Autocomplete -->
+          <Autocomplete
+            v-if="field.type === 'autocomplete'"
+            v-model="formData[field.label]"
+            :label="field.label"
+            :options="field.options as string[]"
+            :placeholder="field.placeholder || ''"
+            :required="field.required"
+            :error="errors[field.label]"
+          />
         </div>
       </div>
 
-      <!-- Tombol Submit -->
-      <button
-        @click="handleSubmit"
-        class="p-2 px-4 mt-4 font-bold text-white bg-blue-500 rounded-md"
-      >
-        Submit
-      </button>
+      <!-- Submit Button -->
+      <SubmitButton label="Submit" :onClick="handleSubmit" :disabled="!isValid" />
     </div>
   </MainContainer>
 </template>
-
-<style>
-/* Styling tambahan jika perlu */
-</style>
